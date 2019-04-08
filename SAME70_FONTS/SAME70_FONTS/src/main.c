@@ -12,6 +12,13 @@
 #include "arial_72.h"
 #include "math.h"
 
+#define YEAR        2018
+#define MOUNTH      3
+#define DAY         19
+#define WEEK        12
+#define HOUR        0
+#define MINUTE      0
+#define SECOND      0
 
 #define BUT3_PIO        PIOA
 #define BUT3_PIO_ID     10
@@ -23,7 +30,7 @@
 #define Y_info_0        50
 #define Y_info_1        170
 #define Y_info_2        290
-#define Y_info_3        410
+#define Y_info_3        420
 
 
 struct ili9488_opt_t g_ili9488_display_opt;
@@ -33,6 +40,9 @@ volatile int rotations = 0;
 volatile int total_rotations = 0;
 volatile int velocity = 0;
 volatile int distance = 0;
+volatile int seconds = 0;
+volatile int minutes = 0;
+volatile int hours = 0;
 
 
 void but3_callback(void)
@@ -62,6 +72,41 @@ void RTT_Handler(void)
 		
 		f_rtt_alarme = true;
 	}
+}
+
+void RTC_Handler(void)
+{
+	uint32_t ul_status = rtc_get_status(RTC);
+
+	/*
+	*  Verifica por qual motivo entrou
+	*  na interrupcao, se foi por segundo
+	*  ou Alarm
+	*/
+	if ((ul_status & RTC_SR_SEC) == RTC_SR_SEC) {
+		rtc_clear_status(RTC, RTC_SCCR_SECCLR);
+	}
+	
+	/* Time or date alarm */
+	if ((ul_status & RTC_SR_ALARM) == RTC_SR_ALARM) {
+			rtc_clear_status(RTC, RTC_SCCR_ALRCLR);
+			rtc_set_date_alarm(RTC, 1, MOUNTH, 1, DAY);
+			int hora, min, sec;
+			rtc_get_time(RTC, &hora, &min, &sec);
+			if (sec <= 59) {
+				if (min <= 59) {
+					
+				}
+			}
+			rtc_set_time_alarm(RTC, 1, hora, 1, min, 1, sec+1);
+			seconds += 1;
+	}
+	
+	rtc_clear_status(RTC, RTC_SCCR_ACKCLR);
+	rtc_clear_status(RTC, RTC_SCCR_TIMCLR);
+	rtc_clear_status(RTC, RTC_SCCR_CALCLR);
+	rtc_clear_status(RTC, RTC_SCCR_TDERRCLR);
+	
 }
 
 
@@ -130,10 +175,26 @@ static void RTT_init(uint16_t pllPreScale, uint32_t IrqNPulses)
 	rtt_enable_interrupt(RTT, RTT_MR_ALMIEN);
 }
 
-void draw_time(void) {
-	char buffer3[32];
-	sprintf(buffer3, "%d", velocity);
-	font_draw_text(&calibri_36, "Distancia"+buffer3, 50, Y_info_2, 1);
+void RTC_init(){
+	/* Configura o PMC */
+	pmc_enable_periph_clk(ID_RTC);
+
+	/* Default RTC configuration, 24-hour mode */
+	rtc_set_hour_mode(RTC, 0);
+
+	/* Configura data e hora manualmente */
+	rtc_set_date(RTC, YEAR, MOUNTH, DAY, WEEK);
+	rtc_set_time(RTC, HOUR, MINUTE, SECOND);
+
+	/* Configure RTC interrupts */
+	NVIC_DisableIRQ(RTC_IRQn);
+	NVIC_ClearPendingIRQ(RTC_IRQn);
+	NVIC_SetPriority(RTC_IRQn, 0);
+	NVIC_EnableIRQ(RTC_IRQn);
+
+	/* Ativa interrupcao via alarme */
+	rtc_enable_interrupt(RTC, RTC_IER_ALREN);
+
 }
 
 
@@ -143,6 +204,11 @@ int main(void) {
 	
 	BUT_init();
 	configure_lcd();
+	
+	RTC_init();
+	
+	rtc_set_date_alarm(RTC, 1, MOUNTH, 1, DAY);
+	rtc_set_time_alarm(RTC, 1, HOUR, 1, MINUTE, 1, SECOND+1);
 	
 	rotations = 0;
 	
@@ -167,7 +233,9 @@ int main(void) {
 	sprintf(buffer3, "%d", distance);
 	font_draw_text(&arial_72, buffer3, 50, Y_info_2+30, 1);
 	
-	draw_time();
+	char buffer4[32];
+	sprintf(buffer4, "%d", seconds);
+	font_draw_text(&calibri_36, buffer4, 50, Y_info_3, 1);
 	
 	while(1) {
 		pmc_sleep(SAM_PM_SMODE_SLEEP_WFI);
@@ -200,12 +268,14 @@ int main(void) {
 			font_draw_text(&calibri_36, "Distancia", 50, Y_info_2, 1);
 			
 			char buffer3[32];
-			sprintf(buffer3, "%d", velocity);
+			sprintf(buffer3, "%d", distance);
 			font_draw_text(&arial_72, buffer3, 50, Y_info_2+30, 1);
-			
-			draw_time();
 			
 			rotations = 0;
 		}
+		
+		char buffer4[32];
+		sprintf(buffer4, "%d", seconds);
+		font_draw_text(&calibri_36, buffer4, 50, Y_info_3, 1);
 	}
 }
