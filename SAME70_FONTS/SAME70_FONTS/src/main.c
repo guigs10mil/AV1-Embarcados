@@ -93,13 +93,21 @@ void RTC_Handler(void)
 			rtc_set_date_alarm(RTC, 1, MOUNTH, 1, DAY);
 			int hora, min, sec;
 			rtc_get_time(RTC, &hora, &min, &sec);
-			if (sec <= 59) {
-				if (min <= 59) {
-					
+			if (sec >= 59) {
+				if (min >= 59) {
+					rtc_set_time_alarm(RTC, 1, 0, hora+1, 0, 1, 0);
+					hours += 1;
+					minutes = 0;
+				} else {
+					rtc_set_time_alarm(RTC, 1, hora, 1, min+1, 1, 0);
+					minutes += 1;
 				}
+				seconds = 0;
+			} else {
+				rtc_set_time_alarm(RTC, 1, hora, 1, min, 1, sec+1);
+				seconds += 1;
 			}
-			rtc_set_time_alarm(RTC, 1, hora, 1, min, 1, sec+1);
-			seconds += 1;
+			
 	}
 	
 	rtc_clear_status(RTC, RTC_SCCR_ACKCLR);
@@ -234,7 +242,7 @@ int main(void) {
 	font_draw_text(&arial_72, buffer3, 50, Y_info_2+30, 1);
 	
 	char buffer4[32];
-	sprintf(buffer4, "%d", seconds);
+	sprintf(buffer4, "%d:%d:%d", hours, minutes, seconds);
 	font_draw_text(&calibri_36, buffer4, 50, Y_info_3, 1);
 	
 	while(1) {
@@ -255,27 +263,27 @@ int main(void) {
 			font_draw_text(&sourcecodepro_28, "GUILHERME", 50, 20, 1);
 			font_draw_text(&calibri_36, "Rotacoes", 50, Y_info_0, 1);
 			
-			char buffer[32];
+			
 			sprintf(buffer, "%d", rotations);
 			font_draw_text(&arial_72, buffer, 50, Y_info_0+30, 1);
 			
-			font_draw_text(&calibri_36, "Velocidade", 50, Y_info_1, 1);
+			font_draw_text(&calibri_36, "Velocidade (km/h)", 50, Y_info_1, 1);
 			
-			char buffer2[32];
+			
 			sprintf(buffer2, "%d", velocity);
 			font_draw_text(&arial_72, buffer2, 50, Y_info_1+30, 1);
 			
-			font_draw_text(&calibri_36, "Distancia", 50, Y_info_2, 1);
+			font_draw_text(&calibri_36, "Distancia (m)", 50, Y_info_2, 1);
 			
-			char buffer3[32];
+			
 			sprintf(buffer3, "%d", distance);
 			font_draw_text(&arial_72, buffer3, 50, Y_info_2+30, 1);
 			
 			rotations = 0;
 		}
 		
-		char buffer4[32];
-		sprintf(buffer4, "%d", seconds);
+		ili9488_draw_filled_rectangle(50, Y_info_3, ILI9488_LCD_WIDTH-51, ILI9488_LCD_HEIGHT-51);
+		sprintf(buffer4, "%d:%d:%d", hours, minutes, seconds);
 		font_draw_text(&calibri_36, buffer4, 50, Y_info_3, 1);
 	}
 }
