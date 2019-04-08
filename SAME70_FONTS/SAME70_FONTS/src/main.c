@@ -10,6 +10,7 @@
 #include "sourcecodepro_28.h"
 #include "calibri_36.h"
 #include "arial_72.h"
+#include "math.h"
 
 
 #define BUT3_PIO        PIOA
@@ -18,15 +19,19 @@
 #define BUT3_IDX_MASK   1 << BUT3_IDX
 
 
+#define radius          1
+
+
 struct ili9488_opt_t g_ili9488_display_opt;
 
 volatile int rotations = 0;
+volatile int velocity = 0;
+volatile int distance = 0;
 
 
 void but3_callback(void)
 {
 	rotations += 1;
-	//font_draw_text(&arial_72, "20", 50, 200, 2);
 }
 
 void RTT_Handler(void)
@@ -41,8 +46,8 @@ void RTT_Handler(void)
 
 	/* IRQ due to Alarm */
 	if ((ul_status & RTT_SR_ALMS) == RTT_SR_ALMS) {
-		pin_toggle(LED_PIO, LED_IDX_MASK);    // BLINK Led
-		f_rtt_alarme = true;                  // flag RTT alarme
+		//pin_toggle(LED_PIO, LED_IDX_MASK);    // BLINK Led
+		//f_rtt_alarme = true;                  // flag RTT alarme
 	}
 }
 
@@ -120,10 +125,6 @@ int main(void) {
 	BUT_init();
 	configure_lcd();
 	
-	font_draw_text(&sourcecodepro_28, "OIMUNDO", 50, 50, 1);
-	font_draw_text(&calibri_36, "12 Mundo! #$!", 50, 100, 1);
-	font_draw_text(&arial_72, "10 km", 50, 200, 1);
-	
 	uint16_t pllPreScale = (int) (((float) 32768) / 2.0);
 	uint32_t irqRTTvalue  = 4;
 	
@@ -131,6 +132,16 @@ int main(void) {
 	RTT_init(pllPreScale, irqRTTvalue);
 	
 	while(1) {
-		// pmc_sleep(SAM_PM_SMODE_SLEEP_WFI);
+		pmc_sleep(SAM_PM_SMODE_SLEEP_WFI);
+		font_draw_text(&sourcecodepro_28, "GUILHERME", 50, 50, 1);
+		font_draw_text(&calibri_36, "12 Mundo! #$!", 50, 100, 1);
+		
+		char buffer[32];
+		sprintf(buffer, "%d", rotations);
+		font_draw_text(&arial_72, buffer, 50, 200, 1);
+		
+		char buffer2[32];
+		sprintf(buffer2, "%d", velocity);
+		font_draw_text(&arial_72, buffer2, 50, 300, 1);
 	}
 }
