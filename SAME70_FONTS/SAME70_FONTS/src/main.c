@@ -23,6 +23,7 @@
 
 
 struct ili9488_opt_t g_ili9488_display_opt;
+volatile Bool f_rtt_alarme = false;
 
 volatile int rotations = 0;
 volatile int velocity = 0;
@@ -42,12 +43,15 @@ void RTT_Handler(void)
 	ul_status = rtt_get_status(RTT);
 
 	/* IRQ due to Time has changed */
-	if ((ul_status & RTT_SR_RTTINC) == RTT_SR_RTTINC) {  }
+	if ((ul_status & RTT_SR_RTTINC) == RTT_SR_RTTINC) { 
+		
+	}
 
 	/* IRQ due to Alarm */
 	if ((ul_status & RTT_SR_ALMS) == RTT_SR_ALMS) {
 		//pin_toggle(LED_PIO, LED_IDX_MASK);    // BLINK Led
 		//f_rtt_alarme = true;                  // flag RTT alarme
+		velocity += 1;
 	}
 }
 
@@ -134,14 +138,25 @@ int main(void) {
 	while(1) {
 		pmc_sleep(SAM_PM_SMODE_SLEEP_WFI);
 		font_draw_text(&sourcecodepro_28, "GUILHERME", 50, 50, 1);
-		font_draw_text(&calibri_36, "12 Mundo! #$!", 50, 100, 1);
+		font_draw_text(&calibri_36, "Rotacoes", 50, 100, 1);
 		
 		char buffer[32];
 		sprintf(buffer, "%d", rotations);
-		font_draw_text(&arial_72, buffer, 50, 200, 1);
+		font_draw_text(&arial_72, buffer, 50, 150, 1);
+		
+		font_draw_text(&calibri_36, "Velocidade", 50, 250, 1);
 		
 		char buffer2[32];
 		sprintf(buffer2, "%d", velocity);
 		font_draw_text(&arial_72, buffer2, 50, 300, 1);
+		
+		if (f_rtt_alarme){
+			uint16_t pllPreScale = (int) (((float) 32768) / 2.0);
+			uint32_t irqRTTvalue  = 4;
+      
+			RTT_init(pllPreScale, irqRTTvalue);         
+
+		  f_rtt_alarme = false;
+		}
 	}
 }
