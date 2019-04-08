@@ -206,7 +206,7 @@ void but3_callback(void)
   400264:	3301      	adds	r3, #1
   400266:	4a03      	ldr	r2, [pc, #12]	; (400274 <but3_callback+0x18>)
   400268:	6013      	str	r3, [r2, #0]
-	// font_draw_text(&arial_72, (char) rotations, 50, 200, 2);
+	// font_draw_text(&arial_72, "20", 50, 200, 2);
 }
   40026a:	bf00      	nop
   40026c:	46bd      	mov	sp, r7
@@ -438,7 +438,7 @@ int main(void) {
   4003d8:	480e      	ldr	r0, [pc, #56]	; (400414 <main+0x5c>)
   4003da:	4c0f      	ldr	r4, [pc, #60]	; (400418 <main+0x60>)
   4003dc:	47a0      	blx	r4
-	font_draw_text(&calibri_36, "Oi Mundo! #$!", 50, 100, 1);
+	font_draw_text(&calibri_36, "12 Mundo! #$!", 50, 100, 1);
   4003de:	2301      	movs	r3, #1
   4003e0:	9300      	str	r3, [sp, #0]
   4003e2:	2364      	movs	r3, #100	; 0x64
@@ -26456,7 +26456,7 @@ void system_init_flash( uint32_t ul_clk )
 
 0044a4fc <arial_72>:
   44a4fc:	0000000a 0044a4ac 00003930 554d494f     ......D.09..OIMU
-  44a50c:	004f444e 4d20694f 6f646e75 24232021     NDO.Oi Mundo! #$
+  44a50c:	004f444e 4d203231 6f646e75 24232021     NDO.12 Mundo! #$
   44a51c:	00000021 6b203031 0000006d              !...10 km...
 
 0044a528 <_global_impure_ptr>:

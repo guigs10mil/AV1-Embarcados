@@ -26,10 +26,25 @@ volatile int rotations = 0;
 void but3_callback(void)
 {
 	rotations += 1;
-	font_draw_text(&arial_72, "20", 50, 200, 2);
+	//font_draw_text(&arial_72, "20", 50, 200, 2);
 }
 
+void RTT_Handler(void)
+{
+	uint32_t ul_status;
 
+	/* Get RTT status */
+	ul_status = rtt_get_status(RTT);
+
+	/* IRQ due to Time has changed */
+	if ((ul_status & RTT_SR_RTTINC) == RTT_SR_RTTINC) {  }
+
+	/* IRQ due to Alarm */
+	if ((ul_status & RTT_SR_ALMS) == RTT_SR_ALMS) {
+		pin_toggle(LED_PIO, LED_IDX_MASK);    // BLINK Led
+		f_rtt_alarme = true;                  // flag RTT alarme
+	}
+}
 
 
 void BUT_init(void){
@@ -76,6 +91,27 @@ void font_draw_text(tFont *font, const char *text, int x, int y, int spacing) {
 	}	
 }
 
+static void RTT_init(uint16_t pllPreScale, uint32_t IrqNPulses)
+{
+	uint32_t ul_previous_time;
+
+	/* Configure RTT for a 1 second tick interrupt */
+	rtt_sel_source(RTT, false);
+	rtt_init(RTT, pllPreScale);
+	
+	ul_previous_time = rtt_read_timer_value(RTT);
+	while (ul_previous_time == rtt_read_timer_value(RTT));
+	
+	rtt_write_alarm_time(RTT, IrqNPulses+ul_previous_time);
+
+	/* Enable RTT interrupt */
+	NVIC_DisableIRQ(RTT_IRQn);
+	NVIC_ClearPendingIRQ(RTT_IRQn);
+	NVIC_SetPriority(RTT_IRQn, 0);
+	NVIC_EnableIRQ(RTT_IRQn);
+	rtt_enable_interrupt(RTT, RTT_MR_ALMIEN);
+}
+
 
 int main(void) {
 	board_init();
@@ -85,8 +121,15 @@ int main(void) {
 	configure_lcd();
 	
 	font_draw_text(&sourcecodepro_28, "OIMUNDO", 50, 50, 1);
-	font_draw_text(&calibri_36, "Oi Mundo! #$!", 50, 100, 1);
+	font_draw_text(&calibri_36, "12 Mundo! #$!", 50, 100, 1);
 	font_draw_text(&arial_72, "10 km", 50, 200, 1);
+	
+	uint16_t pllPreScale = (int) (((float) 32768) / 2.0);
+	uint32_t irqRTTvalue  = 4;
+	
+	// reinicia RTT para gerar um novo IRQ
+	RTT_init(pllPreScale, irqRTTvalue);
+	
 	while(1) {
 		// pmc_sleep(SAM_PM_SMODE_SLEEP_WFI);
 	}
