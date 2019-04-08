@@ -18,14 +18,19 @@
 #define BUT3_IDX        19
 #define BUT3_IDX_MASK   1 << BUT3_IDX
 
-
 #define radius          1
+
+#define Y_info_0        50
+#define Y_info_1        170
+#define Y_info_2        290
+#define Y_info_3        410
 
 
 struct ili9488_opt_t g_ili9488_display_opt;
 volatile Bool f_rtt_alarme = false;
 
 volatile int rotations = 0;
+volatile int total_rotations = 0;
 volatile int velocity = 0;
 volatile int distance = 0;
 
@@ -33,6 +38,7 @@ volatile int distance = 0;
 void but3_callback(void)
 {
 	rotations += 1;
+	total_rotations += 1;
 }
 
 void RTT_Handler(void)
@@ -52,7 +58,7 @@ void RTT_Handler(void)
 		
 		velocity = (int) ((float) 0.5*2*M_PI*rotations/2);
 		
-		distance = (int) ((float) 0.5*2*M_PI*rotations);
+		distance = (int) ((float) 0.5*2*M_PI*total_rotations);
 		
 		f_rtt_alarme = true;
 	}
@@ -124,6 +130,12 @@ static void RTT_init(uint16_t pllPreScale, uint32_t IrqNPulses)
 	rtt_enable_interrupt(RTT, RTT_MR_ALMIEN);
 }
 
+void draw_time(void) {
+	char buffer3[32];
+	sprintf(buffer3, "%d", velocity);
+	font_draw_text(&calibri_36, "Distancia"+buffer3, 50, Y_info_2, 1);
+}
+
 
 int main(void) {
 	board_init();
@@ -132,26 +144,30 @@ int main(void) {
 	BUT_init();
 	configure_lcd();
 	
+	rotations = 0;
+	
 	f_rtt_alarme = true;
 	
 	font_draw_text(&sourcecodepro_28, "GUILHERME", 50, 20, 1);
-	font_draw_text(&calibri_36, "Rotacoes", 50, 50, 1);
+	font_draw_text(&calibri_36, "Rotacoes", 50, Y_info_0, 1);
 	
 	char buffer[32];
 	sprintf(buffer, "%d", rotations);
-	font_draw_text(&arial_72, buffer, 50, 80, 1);
+	font_draw_text(&arial_72, buffer, 50, Y_info_0+30, 1);
 	
-	font_draw_text(&calibri_36, "Velocidade", 50, 200, 1);
+	font_draw_text(&calibri_36, "Velocidade", 50, Y_info_1, 1);
 	
 	char buffer2[32];
 	sprintf(buffer2, "%d", velocity);
-	font_draw_text(&arial_72, buffer2, 50, 230, 1);
+	font_draw_text(&arial_72, buffer2, 50, Y_info_1+30, 1);
 	
-	font_draw_text(&calibri_36, "Distancia", 50, 350, 1);
+	font_draw_text(&calibri_36, "Distancia", 50, Y_info_2, 1);
 	
 	char buffer3[32];
-	sprintf(buffer3, "%d", velocity);
-	font_draw_text(&arial_72, buffer3, 50, 380, 1);
+	sprintf(buffer3, "%d", distance);
+	font_draw_text(&arial_72, buffer3, 50, Y_info_2+30, 1);
+	
+	draw_time();
 	
 	while(1) {
 		pmc_sleep(SAM_PM_SMODE_SLEEP_WFI);
@@ -164,28 +180,30 @@ int main(void) {
 
 			f_rtt_alarme = false;
 			
-			ili9488_draw_filled_rectangle(50, 80, ILI9488_LCD_WIDTH-51, 50+100);
-			ili9488_draw_filled_rectangle(50, 230, ILI9488_LCD_WIDTH-51, 230+100);
-			ili9488_draw_filled_rectangle(50, 380, ILI9488_LCD_WIDTH-51, 380+100);
+			ili9488_draw_filled_rectangle(50, Y_info_0+30, ILI9488_LCD_WIDTH-51, Y_info_0+100);
+			ili9488_draw_filled_rectangle(50, Y_info_1+30, ILI9488_LCD_WIDTH-51, Y_info_1+100);
+			ili9488_draw_filled_rectangle(50, Y_info_2+30, ILI9488_LCD_WIDTH-51, Y_info_2+100);
 			
 			font_draw_text(&sourcecodepro_28, "GUILHERME", 50, 20, 1);
-			font_draw_text(&calibri_36, "Rotacoes", 50, 50, 1);
+			font_draw_text(&calibri_36, "Rotacoes", 50, Y_info_0, 1);
 			
 			char buffer[32];
 			sprintf(buffer, "%d", rotations);
-			font_draw_text(&arial_72, buffer, 50, 80, 1);
+			font_draw_text(&arial_72, buffer, 50, Y_info_0+30, 1);
 			
-			font_draw_text(&calibri_36, "Velocidade", 50, 200, 1);
+			font_draw_text(&calibri_36, "Velocidade", 50, Y_info_1, 1);
 			
 			char buffer2[32];
 			sprintf(buffer2, "%d", velocity);
-			font_draw_text(&arial_72, buffer2, 50, 230, 1);
+			font_draw_text(&arial_72, buffer2, 50, Y_info_1+30, 1);
 			
-			font_draw_text(&calibri_36, "Distancia", 50, 350, 1);
+			font_draw_text(&calibri_36, "Distancia", 50, Y_info_2, 1);
 			
 			char buffer3[32];
 			sprintf(buffer3, "%d", velocity);
-			font_draw_text(&arial_72, buffer3, 50, 380, 1);
+			font_draw_text(&arial_72, buffer3, 50, Y_info_2+30, 1);
+			
+			draw_time();
 			
 			rotations = 0;
 		}
