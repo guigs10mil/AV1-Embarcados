@@ -49,9 +49,10 @@ void RTT_Handler(void)
 
 	/* IRQ due to Alarm */
 	if ((ul_status & RTT_SR_ALMS) == RTT_SR_ALMS) {
-		//pin_toggle(LED_PIO, LED_IDX_MASK);    // BLINK Led
-		//f_rtt_alarme = true;                  // flag RTT alarme
-		velocity += 1;
+		
+		velocity = (int) ((float) 2*3.14*rotations/2);
+		
+		f_rtt_alarme = true;
 	}
 }
 
@@ -129,14 +130,11 @@ int main(void) {
 	BUT_init();
 	configure_lcd();
 	
-	uint16_t pllPreScale = (int) (((float) 32768) / 2.0);
-	uint32_t irqRTTvalue  = 4;
-	
-	// reinicia RTT para gerar um novo IRQ
-	RTT_init(pllPreScale, irqRTTvalue);
+	f_rtt_alarme = true;
 	
 	while(1) {
 		pmc_sleep(SAM_PM_SMODE_SLEEP_WFI);
+		
 		font_draw_text(&sourcecodepro_28, "GUILHERME", 50, 50, 1);
 		font_draw_text(&calibri_36, "Rotacoes", 50, 100, 1);
 		
@@ -152,7 +150,7 @@ int main(void) {
 		
 		if (f_rtt_alarme){
 			uint16_t pllPreScale = (int) (((float) 32768) / 2.0);
-			uint32_t irqRTTvalue  = 4;
+			uint32_t irqRTTvalue  = 2;
       
 			RTT_init(pllPreScale, irqRTTvalue);         
 
