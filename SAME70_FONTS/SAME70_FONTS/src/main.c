@@ -20,6 +20,11 @@
 #define MINUTE      0
 #define SECOND      0
 
+#define BUT2_PIO      PIOC
+#define BUT2_PIO_ID   12
+#define BUT2_IDX  31
+#define BUT2_IDX_MASK (1 << BUT2_IDX)
+
 #define BUT3_PIO        PIOA
 #define BUT3_PIO_ID     10
 #define BUT3_IDX        19
@@ -35,6 +40,7 @@
 
 struct ili9488_opt_t g_ili9488_display_opt;
 volatile Bool f_rtt_alarme = false;
+volatile int flag_reset = 1;
 
 volatile int rotations = 0;
 volatile int total_rotations = 0;
@@ -44,6 +50,21 @@ volatile int seconds = 0;
 volatile int minutes = 0;
 volatile int hours = 0;
 
+volatile int idle_counter = 0;
+
+void but2_callback(void)
+{
+	if (flag_reset) {
+		flag_reset = 0;
+	} else {
+		distance = 0;
+		total_rotations = 0;
+		seconds = 0;
+		minutes = 0;
+		hours = 0;
+		flag_reset = 1;
+	}
+}
 
 void but3_callback(void)
 {
@@ -66,9 +87,9 @@ void RTT_Handler(void)
 	/* IRQ due to Alarm */
 	if ((ul_status & RTT_SR_ALMS) == RTT_SR_ALMS) {
 		
-		velocity = (int) ((float) 0.5*2*M_PI*rotations/2);
+		velocity = calc_velocity(rotations);
 		
-		distance = (int) ((float) 0.5*2*M_PI*total_rotations);
+		distance = calc_distance(total_rotations);
 		
 		f_rtt_alarme = true;
 	}
@@ -120,14 +141,25 @@ void RTC_Handler(void)
 
 void BUT_init(void){
 	/* config. pino botao em modo de entrada */
+	pmc_enable_periph_clk(BUT2_PIO_ID);
+	pio_set_input(BUT2_PIO, BUT2_IDX_MASK, PIO_PULLUP | PIO_DEBOUNCE);
+	/* config. pino botao em modo de entrada */
 	pmc_enable_periph_clk(BUT3_PIO_ID);
 	pio_set_input(BUT3_PIO, BUT3_IDX_MASK, PIO_PULLUP | PIO_DEBOUNCE);
 
 	/* config. interrupcao em borda de descida no botao do kit */
 	/* indica funcao (but_Handler) a ser chamada quando houver uma interrup??o */
+	pio_enable_interrupt(BUT2_PIO, BUT2_IDX_MASK);
+	pio_handler_set(BUT2_PIO, BUT2_PIO_ID, BUT2_IDX_MASK, PIO_IT_FALL_EDGE, but2_callback);
+	/* config. interrupcao em borda de descida no botao do kit */
+	/* indica funcao (but_Handler) a ser chamada quando houver uma interrup??o */
 	pio_enable_interrupt(BUT3_PIO, BUT3_IDX_MASK);
 	pio_handler_set(BUT3_PIO, BUT3_PIO_ID, BUT3_IDX_MASK, PIO_IT_FALL_EDGE, but3_callback);
 
+	/* habilita interrup?c?o do PIO que controla o botao */
+	/* e configura sua prioridade                        */
+	NVIC_EnableIRQ(BUT2_PIO_ID);
+	NVIC_SetPriority(BUT2_PIO_ID, 1);
 	/* habilita interrup?c?o do PIO que controla o botao */
 	/* e configura sua prioridade                        */
 	NVIC_EnableIRQ(BUT3_PIO_ID);
@@ -147,6 +179,13 @@ void configure_lcd(void){
 	
 }
 
+int calc_distance(int rot) {
+	return (int) ((float) 0.65*2*M_PI*rot);
+}
+
+int calc_velocity(int rot) {
+	return (int) ((float) 3.6*0.65*2*M_PI*rot/2);
+}
 
 void font_draw_text(tFont *font, const char *text, int x, int y, int spacing) {
 	char *p = text;
@@ -219,71 +258,76 @@ int main(void) {
 	rtc_set_time_alarm(RTC, 1, HOUR, 1, MINUTE, 1, SECOND+1);
 	
 	rotations = 0;
+	total_rotations = 0;
+	distance = 0;
+	flag_reset = 1;
 	
 	f_rtt_alarme = true;
 	
-	font_draw_text(&sourcecodepro_28, "GUILHERME", 50, 20, 1);
-	font_draw_text(&calibri_36, "Rotacoes", 50, Y_info_0, 1);
+	font_draw_text(&sourcecodepro_28, "GUILHERME", 30, 20, 1);
+	font_draw_text(&calibri_36, "Rotacoes", 30, Y_info_0, 1);
 	
 	char buffer[32];
 	sprintf(buffer, "%d", rotations);
-	font_draw_text(&arial_72, buffer, 50, Y_info_0+30, 1);
+	font_draw_text(&arial_72, buffer, 30, Y_info_0+30, 1);
 	
-	font_draw_text(&calibri_36, "Velocidade", 50, Y_info_1, 1);
+	font_draw_text(&calibri_36, "Velocidade (km/h)", 30, Y_info_1, 1);
 	
 	char buffer2[32];
 	sprintf(buffer2, "%d", velocity);
-	font_draw_text(&arial_72, buffer2, 50, Y_info_1+30, 1);
+	font_draw_text(&arial_72, buffer2, 30, Y_info_1+30, 1);
 	
-	font_draw_text(&calibri_36, "Distancia", 50, Y_info_2, 1);
+	font_draw_text(&calibri_36, "Distancia (m)", 30, Y_info_2, 1);
 	
 	char buffer3[32];
 	sprintf(buffer3, "%d", distance);
-	font_draw_text(&arial_72, buffer3, 50, Y_info_2+30, 1);
+	font_draw_text(&arial_72, buffer3, 30, Y_info_2+30, 1);
 	
 	char buffer4[32];
-	sprintf(buffer4, "%d:%d:%d", hours, minutes, seconds);
-	font_draw_text(&calibri_36, buffer4, 50, Y_info_3, 1);
+	sprintf(buffer4, "%02d:%02d:%02d", hours, minutes, seconds);
+	font_draw_text(&calibri_36, buffer4, 30, Y_info_3, 1);
 	
 	while(1) {
 		pmc_sleep(SAM_PM_SMODE_SLEEP_WFI);
 	
-		if (f_rtt_alarme){
-			uint16_t pllPreScale = (int) (((float) 32768) / 2.0);
-			uint32_t irqRTTvalue  = 8;
-			
-			RTT_init(pllPreScale, irqRTTvalue);       
+		if (flag_reset) {
+			if (f_rtt_alarme){
+				uint16_t pllPreScale = (int) (((float) 32768) / 2.0);
+				uint32_t irqRTTvalue  = 8;
+				
+				RTT_init(pllPreScale, irqRTTvalue);
 
-			f_rtt_alarme = false;
+				f_rtt_alarme = false;
+				
+				ili9488_draw_filled_rectangle(30, Y_info_0+30, ILI9488_LCD_WIDTH-51, Y_info_0+100);
+				ili9488_draw_filled_rectangle(30, Y_info_1+30, ILI9488_LCD_WIDTH-51, Y_info_1+100);
+				ili9488_draw_filled_rectangle(30, Y_info_2+30, ILI9488_LCD_WIDTH-51, Y_info_2+100);
+				
+				font_draw_text(&sourcecodepro_28, "GUILHERME", 30, 20, 1);
+				font_draw_text(&calibri_36, "Rotacoes", 30, Y_info_0, 1);
+				
+				
+				sprintf(buffer, "%d", rotations);
+				font_draw_text(&arial_72, buffer, 30, Y_info_0+30, 1);
+				
+				font_draw_text(&calibri_36, "Velocidade (km/h)", 30, Y_info_1, 1);
+				
+				
+				sprintf(buffer2, "%d", velocity);
+				font_draw_text(&arial_72, buffer2, 30, Y_info_1+30, 1);
+				
+				font_draw_text(&calibri_36, "Distancia (m)", 30, Y_info_2, 1);
+				
+				
+				sprintf(buffer3, "%d", distance);
+				font_draw_text(&arial_72, buffer3, 30, Y_info_2+30, 1);
+				
+				rotations = 0;
+			}
 			
-			ili9488_draw_filled_rectangle(50, Y_info_0+30, ILI9488_LCD_WIDTH-51, Y_info_0+100);
-			ili9488_draw_filled_rectangle(50, Y_info_1+30, ILI9488_LCD_WIDTH-51, Y_info_1+100);
-			ili9488_draw_filled_rectangle(50, Y_info_2+30, ILI9488_LCD_WIDTH-51, Y_info_2+100);
-			
-			font_draw_text(&sourcecodepro_28, "GUILHERME", 50, 20, 1);
-			font_draw_text(&calibri_36, "Rotacoes", 50, Y_info_0, 1);
-			
-			
-			sprintf(buffer, "%d", rotations);
-			font_draw_text(&arial_72, buffer, 50, Y_info_0+30, 1);
-			
-			font_draw_text(&calibri_36, "Velocidade (km/h)", 50, Y_info_1, 1);
-			
-			
-			sprintf(buffer2, "%d", velocity);
-			font_draw_text(&arial_72, buffer2, 50, Y_info_1+30, 1);
-			
-			font_draw_text(&calibri_36, "Distancia (m)", 50, Y_info_2, 1);
-			
-			
-			sprintf(buffer3, "%d", distance);
-			font_draw_text(&arial_72, buffer3, 50, Y_info_2+30, 1);
-			
-			rotations = 0;
+			ili9488_draw_filled_rectangle(30, Y_info_3, ILI9488_LCD_WIDTH-51, ILI9488_LCD_HEIGHT-51);
+			sprintf(buffer4, "%02d:%02d:%02d", hours, minutes, seconds);
+			font_draw_text(&calibri_36, buffer4, 30, Y_info_3, 1);
 		}
-		
-		ili9488_draw_filled_rectangle(50, Y_info_3, ILI9488_LCD_WIDTH-51, ILI9488_LCD_HEIGHT-51);
-		sprintf(buffer4, "%d:%d:%d", hours, minutes, seconds);
-		font_draw_text(&calibri_36, buffer4, 50, Y_info_3, 1);
 	}
 }
